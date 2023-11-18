@@ -1,0 +1,30 @@
+#!/usr/bin/env zsh
+
+inRoot() {
+  test -e tsconfig.base.json &&
+  test -e tsconfig.esm.json &&
+  test -e tsconfig.cjs.json &&
+  test -e bin &&
+  test -e src
+}
+
+if ! inRoot; then
+  printf "Please move to the root of the package\n"
+  printf "You are currently in $(pwd)\n"
+  exit 1
+fi
+
+# Make dist if missing
+[[ ! -e dist ]] && mkdir dist
+
+# Clean the dist directory
+rm -fr dist/*
+
+# Build ecmascript modules build
+npx tsc -p tsconfig.esm.json
+
+# Build commonjs build
+npx tsc -p tsconfig.cjs.json
+
+# Generate unfortunately necessary sub- package.json files
+bin/fixup
