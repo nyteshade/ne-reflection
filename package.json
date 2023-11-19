@@ -1,6 +1,6 @@
 {
   "author": "Brielle Harrison <nyteshade at gmail.com>",
-  "description": "",
+  "description": "A set of utilities for reflection in JavaScript, part of the Nyteshade Enterprises suite",
   "devDependencies": {
     "@jest/expect": "^29.7.0",
     "jest": "^29.7.0",
@@ -35,7 +35,7 @@
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/mjs/index.js",
-  "name": "cjs-mjs-combo-template",
+  "name": "@ne/reflection",
   "scripts": {
     "build": "bin/build",
     "test": "jest"
