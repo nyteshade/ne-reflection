@@ -68,9 +68,9 @@ describe('ObjectDescriptor', () => {
       })
     })
 
-    describe('newData', () => {
+    describe('newDataDescriptor', () => {
       it('should create a new data descriptor with defaults', () => {
-        const descriptor = ObjectDescriptor.newData({ value: 'test', writable: true })
+        const descriptor = ObjectDescriptor.newDataDescriptor({ value: 'test', writable: true })
         expect(descriptor).toEqual({
           enumerable: true,
           configurable: false,

@@ -19,9 +19,15 @@ export class ObjectDescriptor {
      * @param {function} [descriptor.set] - The setter function for the property.
      * @throws {TypeError} Throws if the descriptor argument is not an object.
      */
-    constructor(descriptor = {}, base = ObjectDescriptor.BASE) {
+    constructor(descriptor = {}, base = ObjectDescriptor.BASE, thisObj, property) {
         if (descriptor instanceof ObjectDescriptor) {
             descriptor = { ...descriptor.descriptor };
+        }
+        if (property) {
+            this.#property = property;
+        }
+        if (thisObj) {
+            this.#thisObj = thisObj;
         }
         const { known, BaseDescriptor, isDescriptor, definedOnly } = ObjectDescriptor;
         if (!isDescriptor(descriptor)) {
@@ -29,6 +35,12 @@ export class ObjectDescriptor {
         }
         const _base = known.get(base) ?? BaseDescriptor;
         this.descriptor = { ..._base, ...definedOnly(descriptor) };
+    }
+    get property() {
+        return this.#property ?? null;
+    }
+    get thisObj() {
+        return this.#thisObj ?? null;
     }
     /**
      * Gets the descriptor type as a string.
@@ -39,7 +51,7 @@ export class ObjectDescriptor {
         const { ACCESSOR, DATA, BASE } = ObjectDescriptor;
         return this.isAccessor
             ? ACCESSOR
-            : (this.isData ? DATA : BASE);
+            : (this.isDataDescriptor ? DATA : BASE);
     }
     /**
      * Checks if the descriptor is an accessor descriptor.
@@ -56,7 +68,7 @@ export class ObjectDescriptor {
      * @returns {boolean} `true` if the descriptor is a data descriptor,
      * otherwise `false`.
      */
-    get isData() {
+    get isDataDescriptor() {
         return ObjectDescriptor.isDataDescriptor(this.descriptor);
     }
     /**
@@ -207,11 +219,90 @@ export class ObjectDescriptor {
         return ObjectDescriptor.canDelete(this.descriptor);
     }
     /**
+     * If the object for which this descriptor is based on is required in
+     * order to accurately retrieve the value for computed getters and
+     * in the case of data descriptors, the value returned can only be
+     * accurately retrieved if the property name this descriptor describes
+     * is also provided.
+     *
+     * @param {Object} object the object that this descriptor is take from
+     * @param {string|symbol} property the name of the property this
+     * descriptor describes
+     * @returns whatever the value of the descriptor or its function states
+     * it will be.
+     */
+    computeValue(object, property) {
+        const prefix = '[ObjectDescriptor][computeValue]';
+        const thisObj = object ?? (this.#thisObj ?? null);
+        const prop = property ?? (this.#property ?? null);
+        if (this.isAccessor) {
+            const [getter] = this.accessors;
+            if (this.hasGet && thisObj)
+                return getter.bind(thisObj)();
+            console.warn(`${prefix} Cannot retrieve value without 'object'`);
+            return undefined;
+        }
+        else if (this.isDataDescriptor) {
+            if (this.hasValue && thisObj && prop) {
+                return thisObj[prop];
+            }
+            console.warn(`${prefix} Cannot retrieve value without 'object' and 'property'`);
+        }
+        return undefined;
+    }
+    /**
+     * Altering the value on the descriptor, in a meaningful way, requires
+     * that a reference to the object this descriptor pertains to as the
+     * property it describes are both known. Without this information, it
+     * is impossible to modify the data in a meaningful way.
+     *
+     * @param {*} newValue the value to set on the object
+     * @param {Object} object the `this` object the descriptor describes.
+     * @param {string|symbol} property the name of the property this descriptor
+     * describes
+     * @returns true if the set was successful, false otherwise
+     */
+    alterValue(newValue, object, property) {
+        const thisObj = object ?? (this.#thisObj ?? null);
+        const prop = property ?? (this.#property ?? null);
+        const descObj = descriptor instanceof ObjectDescriptor
+            ? descriptor
+            : new ObjectDescriptor(descriptor);
+        if (descObj.isAccessor) {
+            if (descObj.hasSet && descObj.canChange) {
+                const [_, setter] = descObj.accessors;
+                if (thisObj) {
+                    setter.bind(thisObj)(newValue);
+                    return true;
+                }
+            }
+        }
+        else if (descObj.isDataDescriptor) {
+            if (descObj.canChange) {
+                if (this.#property && thisObj) {
+                    thisObj[prop] = newValue;
+                    this.descriptor.value = newValue;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    /**
      * Overrides the default toStringTag.
      *
      * @returns {string} The name of the constructor.
      */
     get [Symbol.toStringTag]() { return this.constructor.name; }
+    /**
+     * An optional object that provides context to the functions
+     * that might be used on this descriptor.
+     */
+    #thisObj = null;
+    /**
+     * The name of the property this descriptor represents
+     */
+    #property = null;
     /**
      * Checks to see if the supplied object has any of the known
      * six descriptor properties in a configuration that makes
@@ -367,10 +458,13 @@ export class ObjectDescriptor {
      * type as a string, which will determine the default properties.
      * @returns {Object} A new data descriptor object.
      */
-    static newData({ value, writable }, base = ObjectDescriptor.VISIBLE) {
+    static newDataDescriptor({ value, writable }, base = ObjectDescriptor.VISIBLE, object = undefined, property = undefined, makeInstance = false) {
         const { known, VisibleDescriptor } = ObjectDescriptor;
         const _base = known.get(base.toLowerCase()) ?? VisibleDescriptor;
-        return { ..._base, value, writable };
+        const output = { ..._base, value, writable };
+        return makeInstance
+            ? new ObjectDescriptor(output, base, object, property)
+            : output;
     }
     /**
      * Creates a new accessor descriptor.
@@ -382,10 +476,13 @@ export class ObjectDescriptor {
      * type as a string, which will determine the default properties.
      * @returns {Object} A new accessor descriptor object.
      */
-    static newAccessorDescriptor({ get, set }, base = ObjectDescriptor.VISIBLE) {
+    static newAccessorDescriptor({ get, set }, base = ObjectDescriptor.VISIBLE, object = undefined, property = undefined, makeInstance = false) {
         const { known, VisibleDescriptor } = ObjectDescriptor;
         const _base = known.get(base.toLowerCase()) ?? VisibleDescriptor;
-        return { ..._base, get, set };
+        const output = { ..._base, get, set };
+        return makeInstance
+            ? new ObjectDescriptor(output, base, object, property)
+            : output;
     }
     /**
      * Attempts to create a new instance of `ObjectDescriptor` from the

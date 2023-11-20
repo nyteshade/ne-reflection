@@ -1,11 +1,14 @@
 export class NEGetProxy {
+    static get kNEGetProxy(): symbol;
     static for(object: any, newProps?: any[]): any[];
-    constructor(toProxy: any, newProperties?: any[]);
+    constructor(toProxy: any, newProperties: any);
+    propertiesObject: any;
+    properties: ObjectDescriptor[];
     target: any;
-    properties: any[];
     proxy: any;
-    process(inputParameters: any): any[];
+    process(object: any): ObjectDescriptor[];
     get proxyTraps(): null;
-    getIfHas(property: any, returnDestructable?: boolean): any;
+    getIfHas(property: any): {} | null;
     #private;
 }
+import { ObjectDescriptor } from "./objectdescriptor.js";

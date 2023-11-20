@@ -86,10 +86,10 @@ export class ObjectDescriptor {
      * type as a string, which will determine the default properties.
      * @returns {Object} A new data descriptor object.
      */
-    static newData({ value, writable }: {
+    static newDataDescriptor({ value, writable }: {
         value: any;
         writable: boolean;
-    }, base?: string | undefined): Object;
+    }, base?: string | undefined, object?: undefined, property?: undefined, makeInstance?: boolean): Object;
     /**
      * Creates a new accessor descriptor.
      *
@@ -103,7 +103,7 @@ export class ObjectDescriptor {
     static newAccessorDescriptor({ get, set }: {
         get: Function;
         set: Function;
-    }, base?: string | undefined): Object;
+    }, base?: string | undefined, object?: undefined, property?: undefined, makeInstance?: boolean): Object;
     /**
      * Attempts to create a new instance of `ObjectDescriptor` from the
      * supplied object. If the object is not an instance yet but follows
@@ -234,14 +234,14 @@ export class ObjectDescriptor {
      * @param {function} [descriptor.set] - The setter function for the property.
      * @throws {TypeError} Throws if the descriptor argument is not an object.
      */
-    constructor(descriptor?: {
+    constructor(descriptor: {
         configurable?: boolean | undefined;
         enumerable?: boolean | undefined;
         value?: any;
         writable?: boolean | undefined;
         get?: Function | undefined;
         set?: Function | undefined;
-    }, base?: string);
+    } | undefined, base: string | undefined, thisObj: any, property: any);
     descriptor: {
         constructor: Function;
         toString(): string;
@@ -251,6 +251,8 @@ export class ObjectDescriptor {
         isPrototypeOf(v: Object): boolean;
         propertyIsEnumerable(v: PropertyKey): boolean;
     };
+    get property(): null;
+    get thisObj(): null;
     /**
      * Gets the descriptor type as a string.
      *
@@ -270,7 +272,7 @@ export class ObjectDescriptor {
      * @returns {boolean} `true` if the descriptor is a data descriptor,
      * otherwise `false`.
      */
-    get isData(): boolean;
+    get isDataDescriptor(): boolean;
     /**
      * Checks if the descriptor is a base descriptor.
      *
@@ -391,9 +393,37 @@ export class ObjectDescriptor {
      */
     get canDelete(): boolean;
     /**
+     * If the object for which this descriptor is based on is required in
+     * order to accurately retrieve the value for computed getters and
+     * in the case of data descriptors, the value returned can only be
+     * accurately retrieved if the property name this descriptor describes
+     * is also provided.
+     *
+     * @param {Object} object the object that this descriptor is take from
+     * @param {string|symbol} property the name of the property this
+     * descriptor describes
+     * @returns whatever the value of the descriptor or its function states
+     * it will be.
+     */
+    computeValue(object: Object, property: string | symbol): any;
+    /**
+     * Altering the value on the descriptor, in a meaningful way, requires
+     * that a reference to the object this descriptor pertains to as the
+     * property it describes are both known. Without this information, it
+     * is impossible to modify the data in a meaningful way.
+     *
+     * @param {*} newValue the value to set on the object
+     * @param {Object} object the `this` object the descriptor describes.
+     * @param {string|symbol} property the name of the property this descriptor
+     * describes
+     * @returns true if the set was successful, false otherwise
+     */
+    alterValue(newValue: any, object: Object, property: string | symbol): boolean;
+    /**
      * Overrides the default toStringTag.
      *
      * @returns {string} The name of the constructor.
      */
     get [Symbol.toStringTag](): string;
+    #private;
 }

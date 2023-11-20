@@ -10,7 +10,7 @@ var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
     return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 };
-var _NEGetProxy_instances, _NEGetProxy_traps, _NEGetProxy_proxyGet, _NEGetProxy_proxyHas, _NEGetProxy_proxySet, _NEGetProxy_proxyDeleteProperty, _NEGetProxy_proxyGetOwnPropertyDescriptor, _NEGetProxy_proxyGetDefineProperty;
+var _NEGetProxy_instances, _NEGetProxy_traps, _NEGetProxy_proxyGet, _NEGetProxy_proxyHas, _NEGetProxy_proxySet, _NEGetProxy_proxyDeleteProperty, _NEGetProxy_proxyGetOwnPropertyDescriptor, _NEGetProxy_proxyDefineProperty;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NEGetProxy = void 0;
 const objectdescriptor_js_1 = require("./objectdescriptor.js");
@@ -43,7 +43,7 @@ class NEGetProxy {
     //                getting the property will invoke the function and
     //                return its results. Will default to false is not
     //                provided
-    constructor(toProxy, newProperties = []) {
+    constructor(toProxy, newProperties) {
         _NEGetProxy_instances.add(this);
         // Private variables
         _NEGetProxy_traps.set(this, null
@@ -79,56 +79,26 @@ class NEGetProxy {
         if (!toProxy) {
             throw new TypeError('NEGetProxy must have a valid object to proxy');
         }
-        const processedProperties = this.process(newProperties);
+        this.propertiesObject = newProperties;
+        this.properties = this.process(newProperties);
         this.target = toProxy;
-        this.properties = processedProperties;
-        const result = new Proxy(toProxy, this.proxyTraps);
-        this.proxy = result;
+        this.proxy = new Proxy(toProxy, this.proxyTraps);
     }
-    process(inputParameters) {
-        const output = [];
-        const convertObject = object => {
-            if (typeof object !== 'object')
-                return;
-            const { property, value, descriptor, isGetter } = object;
-            const { from, OpenDescriptorInstance } = objectdescriptor_js_1.ObjectDescriptor;
-            const descriptorObj = from(descriptor) ?? OpenDescriptorInstance;
-            if ((typeof property !== 'undefined') && (typeof value !== 'undefined')) {
-                output.push({
-                    property,
-                    value,
-                    descriptor: descriptorObj,
-                    isGetter: !!isGetter,
-                });
-            }
-        };
-        const convertArray = array => {
-            if (!Array.isArray(array))
-                return;
-            const [property, value, descriptor, isGetter] = array;
-            const { from, OpenDescriptorInstance } = objectdescriptor_js_1.ObjectDescriptor;
-            const descriptorObj = from(descriptor) ?? OpenDescriptorInstance;
-            if ((typeof property !== 'undefined') && (typeof value !== 'undefined')) {
-                output.push({
-                    property,
-                    value,
-                    descriptor: descriptorObj,
-                    isGetter: !!isGetter,
-                });
-            }
-        };
-        if (!Array.isArray(inputParameters)) {
-            convertObject(inputParameters);
+    process(object) {
+        const { OPEN, BASE } = objectdescriptor_js_1.ObjectDescriptor;
+        const { entries, getOwnPropertyDescriptors: getDescriptors } = Object;
+        const converted = entries(getDescriptors(object))
+            .map(([name, descriptor]) => {
+            return new objectdescriptor_js_1.ObjectDescriptor(descriptor, OPEN, object, name);
+        });
+        if (process.env.NODE_ENV !== 'production') {
+            const propObj = this.propertiesObject;
+            const property = NEGetProxy.kNEGetProxy;
+            const rawDescriptor = objectdescriptor_js_1.ObjectDescriptor.newDataDescriptor({ value: this });
+            converted.push(new objectdescriptor_js_1.ObjectDescriptor(rawDescriptor, BASE, propObj, property));
+            console.log(`[post-process] `, propObj, property, rawDescriptor);
         }
-        else {
-            for (const entry of inputParameters) {
-                if (Array.isArray(entry))
-                    convertArray(entry);
-                else
-                    convertObject(entry);
-            }
-        }
-        return output;
+        return converted;
     }
     get proxyTraps() {
         if (!__classPrivateFieldGet(this, _NEGetProxy_traps, "f")) {
@@ -138,26 +108,31 @@ class NEGetProxy {
                 set: __classPrivateFieldGet(this, _NEGetProxy_instances, "m", _NEGetProxy_proxySet).bind(this),
                 deleteProperty: __classPrivateFieldGet(this, _NEGetProxy_instances, "m", _NEGetProxy_proxyDeleteProperty).bind(this),
                 getOwnPropertyDescriptor: __classPrivateFieldGet(this, _NEGetProxy_instances, "m", _NEGetProxy_proxyGetOwnPropertyDescriptor).bind(this),
-                defineProperty: __classPrivateFieldGet(this, _NEGetProxy_instances, "m", _NEGetProxy_proxyGetDefineProperty).bind(this),
+                defineProperty: __classPrivateFieldGet(this, _NEGetProxy_instances, "m", _NEGetProxy_proxyDefineProperty).bind(this),
             }, "f");
         }
         return __classPrivateFieldGet(this, _NEGetProxy_traps, "f");
     }
-    getIfHas(property, returnDestructable = false) {
+    getIfHas(property) {
         const index = this.properties.findIndex(entry => entry?.property == property);
-        if (!~index) {
-            if (returnDestructable) {
-                return {
-                    property: undefined,
-                    value: undefined,
-                    descriptor: undefined,
-                    isGetter: undefined,
-                };
-            }
-            return null;
-        }
-        return { ...this.properties[index], index };
+        const entry = this.properties[index];
+        const destructable = Object.entries({
+            index: index,
+            property: entry?.property,
+            enumerable: entry?.enumerable,
+            configurable: entry?.configurable,
+            writable: entry?.writable,
+            value: entry?.value,
+            get: entry?.get,
+            set: entry?.set,
+            object: entry?.object,
+            descriptorObj: entry,
+        }).reduce((acc, [key, value]) => { if (value) {
+            acc[key] = value;
+        } ; return acc; }, {});
+        return ~index ? destructable : null;
     }
+    static get kNEGetProxy() { return Symbol.for(this.name); }
     static for(object, newProps = []) {
         const instance = new NEGetProxy(object, newProps);
         return [instance?.proxy, instance];
@@ -167,28 +142,35 @@ exports.NEGetProxy = NEGetProxy;
 _NEGetProxy_traps = new WeakMap(), _NEGetProxy_instances = new WeakSet(), _NEGetProxy_proxyGet = function _NEGetProxy_proxyGet(target, prop, receiver) {
     const neProp = this.getIfHas(prop);
     if (neProp) {
-        if (neProp.isGetter && typeof neProp.value === 'function')
-            return neProp.value();
-        return neProp.value;
+        return neProp.descriptorObj.computeValue();
     }
     return Reflect.get(target, prop, receiver);
 }, _NEGetProxy_proxyHas = function _NEGetProxy_proxyHas(target, prop) {
-    const { isDescriptorInstance } = objectdescriptor_js_1.ObjectDescriptor;
-    const { descriptor, property } = this.getIfHas(prop, true);
-    if (prop === property && descriptor && isDescriptorInstance(descriptor)) {
+    const entry = this.getIfHas(prop) ?? {};
+    const { descriptor } = entry;
+    if (descriptor) {
         if (descriptor.hasEnumerable && descriptor.isEnumerable)
             return true;
     }
     return Reflect.has(target, prop);
 }, _NEGetProxy_proxySet = function _NEGetProxy_proxySet(target, prop, newValue, receiver) {
-    const { descriptor, index } = this.getIfHas(prop, true);
-    if (descriptor?.canChange) {
-        this.properties[index].value = newValue;
-        return true;
+    const { getOwnPropertyDescriptor: getDescriptor } = Object;
+    const entry = this.getIfHas(prop) ?? {};
+    const { descriptor, index } = entry;
+    const propObj = this.propertiesObject;
+    if (descriptor && propObj) {
+        const success = descriptor.alterValue(newValue);
+        if (success) {
+            const modifiedDescriptor = getDescriptor(propObj);
+            if (modifiedDescriptor)
+                this.properties[index] = modifiedDescriptor;
+        }
+        return descriptor.computeValue();
     }
     return Reflect.set(target, prop, newValue, receiver);
 }, _NEGetProxy_proxyDeleteProperty = function _NEGetProxy_proxyDeleteProperty(target, prop) {
-    const { descriptor, index } = this.getIfHas(prop, true);
+    const entry = this.getIfHas(prop) ?? {};
+    const { descriptor, index } = entry;
     if (descriptor?.canDelete) {
         const currentCount = this.properties.length;
         this.properties.splice(index, 1);
@@ -196,33 +178,18 @@ _NEGetProxy_traps = new WeakMap(), _NEGetProxy_instances = new WeakSet(), _NEGet
     }
     return Reflect.deleteProperty(target, prop);
 }, _NEGetProxy_proxyGetOwnPropertyDescriptor = function _NEGetProxy_proxyGetOwnPropertyDescriptor(target, prop) {
-    const { descriptor, value, isGetter } = this.getIfHas(prop, true);
+    const entry = this.getIfHas(prop) ?? {};
+    const { descriptor } = entry;
     if (descriptor) {
-        if (isGetter && descriptor.hasGet && descriptor.isAccessor) {
-            return { ...descriptor.descriptor, get: value };
-        }
-        else {
-            return { ...descriptor.descriptor, value };
-        }
+        return descriptor.descriptor;
     }
     return Reflect.getOwnPropertyDescriptor(target, prop);
-}, _NEGetProxy_proxyGetDefineProperty = function _NEGetProxy_proxyGetDefineProperty(target, prop, descriptor) {
-    const { descriptor: _descriptor, index } = this.getIfHas(prop, true);
-    if (_descriptor?.canChange) {
-        const instance = objectdescriptor_js_1.ObjectDescriptor.from(descriptor);
-        if (instance?.isAccessor) {
-            const { get, set, configurable, enumerable } = descriptor;
-            this.properties[index].descriptor = new objectdescriptor_js_1.ObjectDescriptor({
-                enumerable, configurable, get, set
-            });
-        }
-        else if (instance?.isData) {
-            const { value, writable, enumerable, configurable } = descriptor;
-            this.properties[index].descriptor = new objectdescriptor_js_1.ObjectDescriptor({
-                enumerable, configurable, value, writable
-            });
-        }
-        return !!this.properties[index].descriptor;
+}, _NEGetProxy_proxyDefineProperty = function _NEGetProxy_proxyDefineProperty(target, prop, newDescriptor) {
+    const entry = this.getIfHas(prop) ?? {};
+    const { descriptor, index } = entry;
+    if (descriptor?.canChange) {
+        this.properties[index] = new objectdescriptor_js_1.ObjectDescriptor(newDescriptor);
+        return !!this.properties[index];
     }
-    return Reflect.defineProperty(target, prop, descriptor);
+    return Reflect.defineProperty(target, prop, newDescriptor);
 };
