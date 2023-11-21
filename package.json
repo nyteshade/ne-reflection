@@ -42,7 +42,7 @@
     "test": "jest"
   },
   "type": "module",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "dependencies": {
     "@nyteshade/ne-pubsub": "^1.1.0"
   }
