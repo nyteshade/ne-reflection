@@ -7,6 +7,7 @@
     "jest-cli": "^29.7.0",
     "jest-localstorage-mock": "^2.4.26",
     "prompts": "^2.4.2",
+    "source-map-support": "^0.5.21",
     "typescript": "^5.2.2"
   },
   "engines": {
@@ -41,5 +42,8 @@
     "test": "jest"
   },
   "type": "module",
-  "version": "1.0.1"
+  "version": "1.0.1",
+  "dependencies": {
+    "@nyteshade/ne-pubsub": "^1.1.0"
+  }
 }

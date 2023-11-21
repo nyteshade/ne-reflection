@@ -1,4 +1,4 @@
-import { ObjectDescriptor } from "./objectdescriptor";
+import { Descriptor } from "./descriptor.js";
 
 export function NEIsReflectable(object) {
   return object && (object instanceof Object);
