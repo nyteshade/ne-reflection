@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NEReflectHasAllOf = exports.NEReflectHasOneOf = exports.NEIsReflectable = void 0;
-const objectdescriptor_1 = require("./objectdescriptor");
+const descriptor_js_1 = require("./descriptor.js");
 function NEIsReflectable(object) {
     return object && (object instanceof Object);
 }
