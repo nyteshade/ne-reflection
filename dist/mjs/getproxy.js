@@ -16,7 +16,7 @@ export class GetProxy {
      * referenced when accessing the proxied object. So if you want to do
      * something
      */
-    constructor(toProxy, newProperties, { forceMeta } = {}) {
+    constructor(toProxy, newProperties, { forceMeta } = { forceMeta: false }) {
         if (!toProxy) {
             throw new TypeError(`GetProxy must have a valid object to proxy`);
         }
@@ -35,29 +35,31 @@ export class GetProxy {
         this.properties = properties;
     }
     genProxy(apply = false) {
-        const { newDataDescriptor, keysFor, BASE, VISIBLE } = Descriptor;
+        const { newDataDescriptor, newAccessorDescriptor, BASE, VISIBLE } = Descriptor;
         const proxy = new Proxy(this.target, this.proxyTraps);
-        const self = this;
-        const proxyPrinter = function (depth, opts, inspect) {
-            return inspect(new GetProxy.ProxyReplPrinter(proxy, self), { ...opts, depth });
-        };
-        Object.defineProperties(proxy, {
-            [CustomInspect]: newDataDescriptor({ value: proxyPrinter }, BASE),
+        const meta = this;
+        Object.defineProperties(this.propertiesObject, {
+            // The following items need be on the proxy but this breaks things
+            // [GetProxy.META]: newDataDescriptor({ value: this }, VISIBLE),
+            // [CustomInspect]: newAccessorDescriptor({
+            //   get: function() { return function (depth, opts, inspect) {
+            //     return meta[CustomInspect](depth, opts, inspect)
+            //   }
+            // }}, BASE) ,
             [Symbol.toStringTag]: newDataDescriptor({ value: 'GetProxyInstance' }, BASE),
-            [GetProxy.META]: newDataDescriptor({ value: this }, VISIBLE),
         });
         if (process.env.NODE_ENV !== 'production' || this.#forceMeta) {
             this.#hasMeta = true;
         }
         else {
-            delete proxy[GetProxy.META];
+            delete this.propertiesObject[GetProxy.META];
         }
         if (apply)
             this.proxy = proxy;
         return proxy;
     }
     process(object) {
-        const { BASE, newDataDescriptor, descriptorsFor } = Descriptor;
+        const { descriptorsFor } = Descriptor;
         const useObject = object;
         const converted = descriptorsFor(useObject, 'instance', 'values');
         return [converted, useObject];
@@ -90,8 +92,15 @@ export class GetProxy {
         return null;
     }
     get [Symbol.toStringTag]() { return this.constructor.name; }
+    #proxyPrinter(depth, opts, inspect) {
+        return this[CustomInspect](depth, opts, inspect);
+    }
     #proxyGet(target, prop, receiver) {
         const neProp = this.getIfHas(prop);
+        if (prop === CustomInspect)
+            return this.#proxyCustomInspect;
+        if (prop === Symbol.toStringTag)
+            return this.#proxyStringTag;
         if (neProp) {
             return neProp.descriptor.computeValue();
         }
@@ -100,17 +109,28 @@ export class GetProxy {
     #proxyHas(target, prop) {
         const entry = this.getIfHas(prop) ?? {};
         const { descriptor } = entry;
+        if (prop === CustomInspect)
+            return !!this.#proxyCustomInspect;
+        if (prop === Symbol.toStringTag && !Reflect.ownKeys(target).includes(Symbol.toStringTag))
+            return !!this.#proxyStringTag;
         if (descriptor) {
             if (descriptor.hasEnumerable && descriptor.isEnumerable)
                 return true;
         }
         return Reflect.has(target, prop);
     }
+    #proxyCustomInspect = null;
+    #proxyStringTag = null;
     #proxySet(target, prop, newValue, receiver) {
-        const { getOwnPropertyDescriptor: getDescriptor } = Object;
         const entry = this.getIfHas(prop) ?? {};
         const propObj = this.propertiesObject;
-        let { descriptor, index } = entry;
+        let { descriptor } = entry;
+        if (prop === CustomInspect) {
+            return (this.#proxyCustomInspect = newValue);
+        }
+        if (prop === Symbol.toStringTag) {
+            return (this.#proxyStringTag = newValue);
+        }
         if (descriptor && propObj) {
             const success = descriptor.alterValue(newValue);
             if (success) {
@@ -148,9 +168,9 @@ export class GetProxy {
         return Reflect.getOwnPropertyDescriptor(target, prop);
     }
     #proxyOwnKeys(target) {
-        const ownKeys = Reflect.ownKeys(target);
-        const proxyKeys = Reflect.ownKeys(this.propertiesObject);
-        return ownKeys.concat(proxyKeys);
+        const ownKeys = Descriptor.keysFor(this.target);
+        const proxyKeys = Descriptor.keysFor(this.propertiesObject);
+        return Array.from(new Set(ownKeys.concat(proxyKeys)));
     }
     #proxyDefineProperty(target, prop, newDescriptor) {
         const entry = this.getIfHas(prop) ?? {};
@@ -186,23 +206,6 @@ export class GetProxy {
         else
             return (`${this[Symbol.toStringTag]} { target: ${targetKeys} proxy: ${proxiedKeys} }`);
     }
-    static ProxyReplPrinter = class ProxyReplPrinter {
-        constructor(proxy, meta) {
-            this.proxy = proxy;
-            this.meta = meta;
-        }
-        [Symbol.for('nodejs.util.inspect.custom')] = function (depth, opts, inspect) {
-            const { bold, yellow, white } = inspectToolKit(depth, opts, inspect);
-            const { keysFor } = Descriptor;
-            return [
-                `${bold(this.proxy[Symbol.toStringTag])} {`,
-                `keys: ${keysFor(this.proxy, true, true)
-                    .concat(keysFor(this.meta.propertiesObject, true, true))
-                    .map(k => yellow(k))
-                    .join(white(', '))} }`,
-            ].join(' ');
-        };
-    };
     static get META() { return Symbol.for(this.name); }
     static get REPL_VERBOSITY() {
         return Symbol.for(`GetProxy.replVerbosity`);

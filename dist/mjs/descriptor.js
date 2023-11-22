@@ -303,7 +303,7 @@ export class Descriptor {
     get [Symbol.toStringTag]() { return this.constructor.name; }
     // MARK: - NodeJS REPL Inspect Code
     [Symbol.for('nodejs.util.inspect.custom')](depth, opts, inspect) {
-        const { red, green, yellow, cyan } = inspectToolKit(depth, opts, inspect);
+        const { red, green, yellow, cyan, underlined } = inspectToolKit(depth, opts, inspect);
         const contextStr = (this.#property && this.#thisObj
             ? `context:${green('true')}`
             : ((!this.#property && this.#thisObj)
@@ -333,7 +333,7 @@ export class Descriptor {
                 : ''));
         return [
             `${this.constructor.name}${typeStr} {`,
-            `${this.property && String(this.property) || ''}`,
+            `${underlined(this.property && String(this.property) || '')}`,
             `${contextStr.trim()}`,
             `${modifyStr.trim()}`,
             `${accessorStr.trim()}`,

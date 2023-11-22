@@ -1,10 +1,4 @@
 export class GetProxy {
-    static ProxyReplPrinter: {
-        new (proxy: any, meta: any): {
-            proxy: any;
-            meta: any;
-        };
-    };
     static get META(): symbol;
     static get REPL_VERBOSITY(): symbol;
     static for(object: any, newProps?: any[]): any[];
@@ -19,7 +13,7 @@ export class GetProxy {
      * something
      */
     constructor(toProxy: any, newProperties: any, { forceMeta }?: {
-        forceMeta: any;
+        forceMeta: boolean;
     });
     target: any;
     proxy: any;

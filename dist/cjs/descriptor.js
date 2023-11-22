@@ -344,7 +344,7 @@ class Descriptor {
     get [(_Descriptor_thisObj = new WeakMap(), _Descriptor_property = new WeakMap(), Symbol.toStringTag)]() { return this.constructor.name; }
     // MARK: - NodeJS REPL Inspect Code
     [Symbol.for('nodejs.util.inspect.custom')](depth, opts, inspect) {
-        const { red, green, yellow, cyan } = (0, utils_js_1.inspectToolKit)(depth, opts, inspect);
+        const { red, green, yellow, cyan, underlined } = (0, utils_js_1.inspectToolKit)(depth, opts, inspect);
         const contextStr = (__classPrivateFieldGet(this, _Descriptor_property, "f") && __classPrivateFieldGet(this, _Descriptor_thisObj, "f")
             ? `context:${green('true')}`
             : ((!__classPrivateFieldGet(this, _Descriptor_property, "f") && __classPrivateFieldGet(this, _Descriptor_thisObj, "f"))
@@ -374,7 +374,7 @@ class Descriptor {
                 : ''));
         return [
             `${this.constructor.name}${typeStr} {`,
-            `${this.property && String(this.property) || ''}`,
+            `${underlined(this.property && String(this.property) || '')}`,
             `${contextStr.trim()}`,
             `${modifyStr.trim()}`,
             `${accessorStr.trim()}`,
