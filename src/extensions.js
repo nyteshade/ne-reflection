@@ -1,37 +1,30 @@
-import { Descriptor } from "./descriptor.js";
+import { GetProxy } from './getproxy.js'
 
-export function NEIsReflectable(object) {
-  return object && (object instanceof Object);
-}
+export const NEReflect = new GetProxy(Reflect, {
+  hasEvery(object, ...props) {
+    return (
+      props
+        .map(prop => Reflect.has(object, prop))
+        .every(e => e)
+    )
+  },
 
-export function NEReflectHasOneOf(object, ...props) {
-  let found = false 
-
-  if (!NEIsReflectable(object))
-    return found  
-
-  for (const prop of props) {
-    if (Reflect.has(object, prop)) {
-      found = true 
-      break 
-    }
+  /**
+   * Iterate through each of the supplied properties and return
+   * true if at least one of them exists on the supplied object
+   *
+   * @param {object} object the object to check for properties to
+   * iterate over
+   * @param  {...any} props the properties, in a comma separated
+   * list, to determine existence of on the supplied object
+   * @returns true if some of the properties supplied exist, false
+   * otherwise
+   */
+  hasSome(object, ...props) {
+    return (
+      props
+        .map(prop => Reflect.has(object, prop))
+        .some(e => e)
+    )
   }
-
-  return found
-}
-
-export function NEReflectHasAllOf(object, ...props) {
-  let found = true 
-
-  if (!NEIsReflectable(object))
-    return !found  
-
-  for (const prop of props) {
-    if (!Reflect.has(object, prop)) {
-      found = false 
-      break
-    }
-  }
-
-  return found
-}
+})

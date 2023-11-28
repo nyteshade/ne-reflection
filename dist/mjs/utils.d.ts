@@ -1,88 +1,54 @@
-/// <reference types="node" />
-export function stripNullish(object: any): any;
-export function objectCopy(to: any, ...from: any[]): {};
-export function inspectToolKit(depth?: number, opts?: {
-    colors: boolean;
-}, inspect?: typeof utilInspect): {
-    run: (code: any, count?: number) => void;
-    cursor: (cmd: any, count?: number) => string;
-    cmd: (code: any) => "" | "\u001B[?47h" | "\u001B[?47l" | "\u001B[?1049h" | "\u001B[?1049l";
-    slim: (s: any) => any;
-    toggle: ([on, off]: [any, any], s: any) => string;
-    reset: (s: any) => string;
-    bold: (s: any) => string;
-    underlined: (s: any) => string;
-    italics: (s: any) => string;
-    blinking: (s: any) => string;
-    reversed: (s: any) => string;
-    strikethru: (s: any) => string;
-    black: (s: any) => string;
-    red: (s: any) => string;
-    green: (s: any) => string;
-    yellow: (s: any) => string;
-    blue: (s: any) => string;
-    magenta: (s: any) => string;
-    cyan: (s: any) => string;
-    white: (s: any) => string;
-    Black: (s: any) => string;
-    Red: (s: any) => string;
-    Green: (s: any) => string;
-    Yellow: (s: any) => string;
-    Blue: (s: any) => string;
-    Magenta: (s: any) => string;
-    Cyan: (s: any) => string;
-    White: (s: any) => string;
-    _black: (s: any) => string;
-    _red: (s: any) => string;
-    _green: (s: any) => string;
-    _yellow: (s: any) => string;
-    _blue: (s: any) => string;
-    _magenta: (s: any) => string;
-    _cyan: (s: any) => string;
-    _white: (s: any) => string;
-    _Black: (s: any) => string;
-    _Red: (s: any) => string;
-    _Green: (s: any) => string;
-    _Yellow: (s: any) => string;
-    _Blue: (s: any) => string;
-    _Magenta: (s: any) => string;
-    _Cyan: (s: any) => string;
-    _White: (s: any) => string;
-    eightBit: ([foreground, background]: [any?, any?] | undefined, s: any) => string;
-    twentyFour: ([fRed, fGreen, fBlue, bRed, bGreen, bBlue]: [any?, any?, any?, any?, any?, any?] | undefined, s: any) => string;
-    f0: (s: any) => string;
-    f1: (s: any) => string;
-    f2: (s: any) => string;
-    f3: (s: any) => string;
-    f4: (s: any) => string;
-    f5: (s: any) => string;
-    f6: (s: any) => string;
-    f7: (s: any) => string;
-    b0: (s: any) => string;
-    b1: (s: any) => string;
-    b2: (s: any) => string;
-    b3: (s: any) => string;
-    b4: (s: any) => string;
-    b5: (s: any) => string;
-    b6: (s: any) => string;
-    b7: (s: any) => string;
-    h0: (s: any) => string;
-    h1: (s: any) => string;
-    h2: (s: any) => string;
-    h3: (s: any) => string;
-    h4: (s: any) => string;
-    h5: (s: any) => string;
-    h6: (s: any) => string;
-    h7: (s: any) => string;
-    hb0: (s: any) => string;
-    hb1: (s: any) => string;
-    hb2: (s: any) => string;
-    hb3: (s: any) => string;
-    hb4: (s: any) => string;
-    hb5: (s: any) => string;
-    hb6: (s: any) => string;
-    hb7: (s: any) => string;
-    slimVal: (val: any) => any;
-    val: (val: any) => string;
+/**
+ * Removes nullish values from an object.
+ *
+ * @param {Object} object - The object to remove nullish values from.
+ * @returns {Object} - The object with nullish values removed.
+ */
+export function stripNullish(object: Object): Object;
+/**
+ * Copies properties from multiple objects into a new object.
+ *
+ * @param {Object} to - The target object to copy properties into.
+ * @param {...Object} from - The source objects to copy properties from.
+ * @returns {Object} - A new object with copied properties.
+ */
+export function objectCopy(to: Object, ...from: Object[]): Object;
+/**
+ * Creates an inspectToolKit object with various utility functions for
+ * inspecting and manipulating text with ANSI escape codes.
+ *
+ * @param {number} [depth=10] - The maximum depth to recursively
+ * inspect objects.
+ * @param {object} [opts={ colors: true }] - Options for inspecting
+ * objects, including whether to use colors.
+ * @param {Function} [inspect=utilInspect] - The inspect function to
+ * use for inspecting objects.
+ * @returns {object} - The inspectToolKit object with utility functions.
+ */
+export function inspectToolKit(depth?: number | undefined, opts?: object | undefined, inspect?: Function | undefined): object;
+/**
+ * Creates an immutable enum object with the specified name, cases,
+ * and additional properties.
+ *
+ * @param {string} name - The name of the enum.
+ * @param {string[]} cases - An array of strings representing the
+ * enum cases.
+ * @param {object} [enumStatic] - Additional properties to be added
+ * to the enum object.
+ * @returns {object} - The created enum object.
+ */
+export function emitEnum(name: string, cases: string[], perCaseProps?: {}, enumStatic?: object | undefined): object;
+/**
+ * Masks an object as a string by defining special properties and
+ * setting the prototype to String.prototype.
+ *
+ * @param {Object} object - The object to be masked.
+ * @param {Function} [toPrimitive=(val) => String(val)] - The function
+ * used to convert the object to a primitive value.
+ */
+export function maskAsString(object: Object, toPrimitive?: Function | undefined): void;
+export function asBigIntObject(bigIntPrimitive: any): {
+    value: any;
 };
-import { inspect as utilInspect } from 'util';
+export function toInstance(object: any, passthru?: boolean): any;
+export function isPrimitive(value: any): boolean;

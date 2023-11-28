@@ -1,6 +1,15 @@
 import { Descriptor } from "./descriptor.js"
 import { inspect as utilInspect } from 'util'
+import { ArrayValuesAsKeysAndDescsReducer } from "./reducers.js"
 
+const CustomInspect = Symbol.for('nodejs.util.inspect.custom')
+
+/**
+ * Removes nullish values from an object.
+ *
+ * @param {Object} object - The object to remove nullish values from.
+ * @returns {Object} - The object with nullish values removed.
+ */
 export function stripNullish(object) {
   if (typeof object !== 'object')
     return object
@@ -13,8 +22,15 @@ export function stripNullish(object) {
   return object
 }
 
+/**
+ * Copies properties from multiple objects into a new object.
+ *
+ * @param {Object} to - The target object to copy properties into.
+ * @param {...Object} from - The source objects to copy properties from.
+ * @returns {Object} - A new object with copied properties.
+ */
 export function objectCopy(to, ...from) {
-  const output = {}
+  const output = to ?? {}
 
   for (const object of from) {
     if (!object || (typeof object !== 'object'))
@@ -44,6 +60,18 @@ export function objectCopy(to, ...from) {
   return output
 }
 
+/**
+ * Creates an inspectToolKit object with various utility functions for
+ * inspecting and manipulating text with ANSI escape codes.
+ *
+ * @param {number} [depth=10] - The maximum depth to recursively
+ * inspect objects.
+ * @param {object} [opts={ colors: true }] - Options for inspecting
+ * objects, including whether to use colors.
+ * @param {Function} [inspect=utilInspect] - The inspect function to
+ * use for inspecting objects.
+ * @returns {object} - The inspectToolKit object with utility functions.
+ */
 export function inspectToolKit(
   depth = 10,
   opts = { colors: true },
@@ -277,5 +305,159 @@ export function inspectToolKit(
 
     slimVal: val => killCruft(inspect(val, { ...opts, depth}).trim()),
     val: val => inspect(val, { ...opts, depth }).trim(),
+  }
+}
+
+
+
+/**
+ * Creates an immutable enum object with the specified name, cases,
+ * and additional properties.
+ *
+ * @param {string} name - The name of the enum.
+ * @param {string[]} cases - An array of strings representing the
+ * enum cases.
+ * @param {object} [enumStatic] - Additional properties to be added
+ * to the enum object.
+ * @returns {object} - The created enum object.
+ */
+export function emitEnum(name, cases, perCaseProps = {}, enumStatic = {}) {
+  const casesAndDescs = cases.reduce(ArrayValuesAsKeysAndDescsReducer, {})
+  const _cases = Reflect.ownKeys(casesAndDescs.cases)
+
+  const enumObject = {
+    ...casesAndDescs.cases,
+    ...casesAndDescs.descs,
+
+    isValid(string) {
+      return this.cases.includes(string)
+    },
+
+    get cases() { return _cases },
+    get name() { return name },
+    get desc() {
+      const enumObj = this
+      const func = function description(keyName) {
+        const symbol = Symbol.for(`Desc:${keyName}`)
+        return this[symbol]
+      }
+      const proxy = new Proxy(func, {
+        get(target, prop) {
+          return enumObj[Symbol.for(`Desc:${prop}`)]
+        }
+      })
+
+      return proxy
+    },
+
+    get [Symbol.toStringTag]() { return `Enum${name}` },
+  }
+
+  objectCopy(enumObject, enumStatic)
+
+  if (Descriptor.keysFor(perCaseProps ?? {}).length) {
+    _cases.forEach(thisCase => {
+      if (typeof thisCase === 'string') {
+        let newEntry = objectCopy({ name: thisCase }, perCaseProps)
+        maskAsString(newEntry, () => thisCase)
+        enumObject[thisCase] = newEntry
+      }
+    })
+  }
+
+  return Object.freeze(enumObject)
+}
+
+/**
+ * Masks an object as a string by defining special properties and
+ * setting the prototype to String.prototype.
+ *
+ * @param {Object} object - The object to be masked.
+ * @param {Function} [toPrimitive=(val) => String(val)] - The function
+ * used to convert the object to a primitive value.
+ */
+export function maskAsString(
+  object,
+  toPrimitive = (val) => String(val)
+) {
+  const base = { configurable: true, enumerable: false }
+
+  Object.defineProperties(object, {
+    [Symbol.toPrimitive]: { value: toPrimitive, ...base },
+    [Symbol.toStringTag]: { value: String.name, ...base },
+    [Symbol.species]: { get() { return String }, ...base },
+    [CustomInspect]: { ...base, value(depth, opts, inspect) {
+      return inspect(this[Symbol.toPrimitive](), { ...opts, depth })
+    }}
+  })
+
+  Object.setPrototypeOf(object, String.prototype)
+}
+
+export function asBigIntObject(
+  bigIntPrimitive
+) {
+  const base = { configurable: true, enumerable: false }
+  const object = { value: bigIntPrimitive }
+
+  Object.defineProperties(object, {
+    [Symbol.toPrimitive]: { value: function() { return bigIntPrimitive }, ...base },
+    [Symbol.toStringTag]: { value: BigInt.name, ...base },
+    [Symbol.species]: { get() { return BigInt }, ...base },
+    [CustomInspect]: { ...base, value(depth, opts, inspect) {
+      return inspect(this[Symbol.toPrimitive](), { ...opts, depth })
+    }}
+  })
+
+  Object.setPrototypeOf(object, BigInt.prototype)
+
+  Reflect.ownKeys(BigInt.prototype).forEach(key => {
+    if (typeof object[key] !== 'function') {
+      return
+    }
+
+    object[key] = (function (...args) {
+      return BigInt.prototype[key].apply(this, args)
+    }).bind(object.value)
+  })
+
+  return object
+}
+
+export function toInstance(object, passthru = true) {
+  if (!object)
+    return null
+
+  switch (typeof object) {
+    case 'number': return new Number(object)
+    case 'string': return new String(object)
+    case 'boolean': return new Boolean(object)
+    case 'bigint': return asBigIntObject(object)
+    case 'object': return object
+    default:
+      break
+  }
+
+  return passthru ? object : null
+}
+
+export function isPrimitive(value) {
+  // Check for null as a special case because typeof null
+  // is 'object'
+  if (value === null) {
+    return true;
+  }
+
+  // Check for other primitives
+  switch (typeof value) {
+    case 'string':
+    case 'number':
+    case 'bigint':
+    case 'boolean':
+    case 'undefined':
+    case 'symbol':
+      return true;
+    default:
+      return false;
   }
 }

@@ -1,13 +1,42 @@
-import { Descriptor } from "./descriptor.js"
-import { objectCopy, stripNullish, inspectToolKit } from "./utils.js"
+import { Descriptor } from './descriptor.js'
+import { ConflictResolution, WriteTarget } from './enums.js'
+import { ProxyMeta } from './proxymeta.js'
+import { objectCopy, stripNullish, toInstance } from './utils.js'
 
 const CustomInspect = Symbol.for('nodejs.util.inspect.custom')
+
+const {
+  None: _None,
+  ProxyAny: _ProxyAny,
+  ProxyExisting: _ProxyExisting,
+  TargetAny: _TargetAny,
+  TargetExisting: _TargetExisting,
+  ProxyThenTarget: _ProxyThenTarget,
+  TargetThenProxy: _TargetThenProxy,
+} = WriteTarget
+
+const {
+  ProxyValue: _ProxyValue,
+  TargetValue: _TargetValue,
+} = ConflictResolution
 
 export class GetProxy {
   // Private variables
   #traps = null
-  #forceMeta = false
-  #hasMeta = false
+  #getProxyInstance = {
+    instance: this,
+    forced: false,
+    present: false,
+  }
+  #targetMeta = ProxyMeta.Empty
+  options = {
+    conflictResolution: ConflictResolution.ProxyValue,
+    preferInstance: false,
+    writeTarget: WriteTarget.ProxyAny
+  }
+
+  /** Public object describing proxied values */
+  proxyMeta = ProxyMeta.Empty
 
   /**
    * Creates a new Proxy instwance around a given object in a quick and
@@ -19,66 +48,63 @@ export class GetProxy {
    * referenced when accessing the proxied object. So if you want to do
    * something
    */
-  constructor(toProxy, newProperties, { forceMeta } = { forceMeta: false }) {
+  constructor(
+    toProxy,
+    newProperties = {},
+    options = {}
+  ) {
+    toProxy = toInstance(toProxy)
+
     if (!toProxy) {
       throw new TypeError(`GetProxy must have a valid object to proxy`)
     }
 
-    this.genProperties(newProperties)
+    const { preferInstance } = options
+
+    if (options)
+      objectCopy(this.options, options)
+
     this.target = toProxy
+
+    this.proxyMeta = new ProxyMeta(newProperties)
+    this.#targetMeta = new ProxyMeta(this.target)
+
     this.proxy = this.genProxy()
 
-    if (forceMeta) {
-      this.#forceMeta = true
+    if (preferInstance) {
+      this.#getProxyInstance.forced = true
       return this
     }
 
     return this.proxy
   }
 
-  genProperties(fromObject) {
-    const [properties, propertiesObj] =
-      this.process(fromObject ?? this.propertiesObject)
-
-    this.propertiesObject = propertiesObj
-    this.properties = properties
-  }
-
   genProxy(apply = false) {
-    const { newDataDescriptor, newAccessorDescriptor, BASE, VISIBLE } = Descriptor
+    const { newDataDescriptor, BASE, VISIBLE } = Descriptor
     const proxy = new Proxy(this.target, this.proxyTraps)
-    // const meta = this
 
-    Object.defineProperties(this.propertiesObject, {
-      // The following items need be on the proxy but this breaks things
-      // [GetProxy.META]: newDataDescriptor({ value: this }, VISIBLE),
-      // [CustomInspect]: newAccessorDescriptor({
-      //   get: function() { return function (depth, opts, inspect) {
-      //     return meta[CustomInspect](depth, opts, inspect)
-      //   }
-      // }}, BASE) ,
-      [Symbol.toStringTag]: newDataDescriptor({ value: 'GetProxyInstance' }, BASE),
+    Object.defineProperties(this.proxyMeta.object, {
+      [Symbol.toStringTag]: newDataDescriptor(
+        { value: 'GetProxyInstance' },
+        BASE
+      ),
     })
 
-    if (process.env.NODE_ENV !== 'production' || this.#forceMeta) {
-      this.#hasMeta = true
-    }
-    else {
-      delete this.propertiesObject[GetProxy.META]
+    if (process.env.NODE_ENV !== 'production' || this.#getProxyInstance.forced) {
+      Object.defineProperties(this.proxyMeta.object, {
+        [GetProxy.META]: newDataDescriptor(
+          { value: this },
+          VISIBLE
+        )
+      })
+
+      this.#getProxyInstance.present = true
     }
 
     if (apply)
       this.proxy = proxy
 
     return proxy
-  }
-
-  process(object) {
-    const { descriptorsFor } = Descriptor
-    const useObject = object
-
-    const converted = descriptorsFor(useObject, 'instance', 'values')
-    return [converted, useObject]
   }
 
   get proxyTraps() {
@@ -98,8 +124,9 @@ export class GetProxy {
   }
 
   getIfHas(property) {
-    const index = this.properties.findIndex(entry => entry?.property == property)
-    const entry = this.properties[index]
+    const { props: proxyProps } = this.proxyMeta
+    const index = proxyProps.findIndex(entry => entry?.property == property)
+    const entry = proxyProps[index]
 
     if (~index && entry) {
       return stripNullish(objectCopy({}, entry.descriptor, {
@@ -113,17 +140,77 @@ export class GetProxy {
     return null
   }
 
-  get [Symbol.toStringTag]() { return this.constructor.name }
-
-  #proxyPrinter(depth, opts, inspect) {
-    return this[CustomInspect](depth, opts, inspect)
+  combinedKeys() {
+    return Array.from(
+      new Set(
+        this.proxyMeta.keys.concat(this.#targetMeta.keys)
+      )
+    )
   }
 
-  #proxyGet(target, prop, receiver) {
-    const neProp = this.getIfHas(prop)
+  hasConflictWith(property) {
+    const { keys: proxyKeys } = this.proxyMeta
+    const { keys: targetKeys } = this.#targetMeta
 
-    if (neProp) {
-      return neProp.descriptor.computeValue()
+    return (
+      proxyKeys.includes(property) && targetKeys.includes(property)
+    )
+  }
+
+  destinationObject() {
+    const _dest = this.options.writeTarget
+
+    if (_dest === WriteTarget.None) {
+      return null
+    }
+
+    if (_dest.isAnyProxy) {
+      return this.proxyMeta.object
+    }
+
+    if (_dest.isAnyTarget) {
+      return this.#targetMeta.object
+    }
+
+    return null
+  }
+
+  resolvePropConflict(property) {
+    const { writeTarget } = this.options
+    const conflictExists = this.hasConflictWith(property)
+    const targetFrozen = Object.isFrozen(this.#targetMeta.object)
+    const targetHas = Reflect.has(this.#targetMeta.object, property)
+    const proxyHas = Reflect.has(this.proxyMeta.object, property)
+
+    if (conflictExists) {
+      if (
+        writeTarget.isAnyProxy ||
+        (writeTarget.isAnyExisting && proxyHas) ||
+        (writeTarget === _TargetThenProxy && targetFrozen)
+      ) {
+        return ConflictResolution.ProxyValue
+      }
+      else if (
+        writeTarget.isAnyTarget ||
+        (writeTarget.isAnyExisting && targetHas)
+      ) {
+        return ConflictResolution.TargetValue
+      }
+    }
+
+    return writeTarget.isAnyProxy
+      ? ConflictResolution.ProxyValue
+      : ConflictResolution.TargetValue
+  }
+
+  get [Symbol.toStringTag]() { return this.constructor.name }
+
+  #proxyGet(target, prop, receiver) {
+    const _dest = this.destinationObject()
+    if (_dest) {
+      if (Reflect.has(_dest, prop)) {
+        return _dest[prop]
+      }
     }
 
     return Reflect.get(target, prop, receiver)
@@ -142,41 +229,84 @@ export class GetProxy {
   }
 
   #proxySet(target, prop, newValue, receiver) {
-    const entry = this.getIfHas(prop) ?? {}
-    const propObj = this.propertiesObject
-    let { descriptor } = entry
+    const _dest = this.destinationObject()
+    const _desc = _dest ? Descriptor.descriptorFor(_dest, prop) : null
 
-    if (descriptor && propObj) {
-      const success = descriptor.alterValue(newValue)
-      if (success) {
-        this.genProperties(propObj);
+    if (_dest) {
+      const frozen = Object.isFrozen(_dest)
 
-        ({ descriptor, index } = (this.getIfHas(prop) ?? {}))
+      if (!frozen && _desc?.canChange) {
+        _desc[prop] = newValue
+        return newValue
       }
-      return descriptor.computeValue()
+
+      if (!frozen) {
+        _dest[prop] = newValue
+        return newValue
+      }
+
+      return false
     }
-    else if (prop.startsWith('__') && propObj) {
-      propObj[prop.substring(2)] = newValue
-      this.genProperties(propObj);
-      return newValue
-    }
+
+
+    // const { writeTarget } = this.options
+    // const { keys: proxyKeys } = this.proxyMeta
+    // const { keys: targetKeys } = this.#targetMeta
+    //
+    // if (writeTarget === _None) {
+    //   return newValue
+    // }
+    //
+    // if (!this.hasConflictWith(prop)) {
+    //   if (
+    //     (writeTarget === _ProxyExisting && ~proxyKeys.indexOf(prop)) ||
+    //     [_ProxyAny, _ProxyThenTarget].includes(writeTarget) ||
+    //     (writeTarget === _TargetThenProxy && Object.isFrozen(this.#targetMeta.object))
+    //   ) {
+    //     this.proxyMeta.object[prop] = newValue
+    //     return newValue
+    //   }
+    //
+    //   if (
+    //     (writeTarget === _TargetExisting && ~targetKeys.indexOf(prop)) ||
+    //     [_TargetAny, _TargetThenProxy].includes(writeTarget)
+    //   ) {
+    //     return Reflect.set(target, prop, newValue, receiver)
+    //   }
+    // }
+    //
+    // const resolution = this.resolvePropConflict(prop)
+    // if (resolution === ConflictResolution.ProxyValue) {
+    //   const entry = this.getIfHas(prop) ?? {}
+    //   const propObj = this.proxyMeta.object
+    //   let { descriptor } = entry
+    //
+    //   if (descriptor && propObj) {
+    //     descriptor.alterValue(newValue)
+    //     return descriptor.computeValue()
+    //   }
+    // }
 
     return Reflect.set(target, prop, newValue, receiver)
   }
 
   #proxyDeleteProperty(target, prop) {
+    const { writeTarget } = this.options
+
+    if (writeTarget === _None)
+      return false
+
     const entry = this.getIfHas(prop) ?? {}
     const { descriptor, index } = entry
+    const { props: proxyProps, object: proxyObj } = this.proxyMeta
 
-    if (descriptor?.canDelete && this.propertiesObject) {
-      const currentCount = this.properties.length
+    if (descriptor?.canDelete && proxyObj) {
+      const currentCount = proxyProps.length
 
-      delete this.propertiesObject[prop]
-      const [newProps, newObj] = this.process(this.propertiesObject)
-      this.propertiesObject = newObj
-      this.properties = newProps
+      delete proxyObj[prop]
+      this.proxyMeta = new ProxyMeta(this.proxyMeta.object)
 
-      return (currentCount > this.properties.length)
+      return (currentCount > proxyProps.length)
     }
 
     return Reflect.deleteProperty(target, prop)
@@ -185,6 +315,7 @@ export class GetProxy {
   #proxyGetOwnPropertyDescriptor(target, prop) {
     const entry = this.getIfHas(prop) ?? {}
     const { descriptor } = entry
+    // TODO: check the proper object and look for conflicts
 
     if (descriptor) {
       return descriptor.descriptor
@@ -194,19 +325,30 @@ export class GetProxy {
   }
 
   #proxyOwnKeys(target) {
-    const ownKeys = Descriptor.keysFor(this.target)
-    const proxyKeys = Descriptor.keysFor(this.propertiesObject)
+    const ownKeys = this.#targetMeta.keys
+    const proxyKeys = this.proxyMeta.keys
 
     return Array.from(new Set(ownKeys.concat(proxyKeys)))
   }
 
   #proxyDefineProperty(target, prop, newDescriptor) {
     const entry = this.getIfHas(prop) ?? {}
-    const { descriptor, index } = entry
+    const { descriptor } = entry
+    const _dest = this.destinationObject()
+    const _destDescriptors = Descriptor.descriptorsFor(_dest, 'instance', true)
 
-    if (descriptor?.canChange) {
-      this.properties[index] = new Descriptor(newDescriptor)
-      return !!this.properties[index]
+    if (_dest) {
+      if (Descriptor.descriptorsFor(_dest, false, 'keys').includes(prop)) {
+        if (_destDescriptors[prop].canChange) {
+          Object.defineProperty(_dest, prop, newDescriptor)
+          return true
+        }
+        return false
+      }
+
+      Object.defineProperty(_dest, prop, newDescriptor)
+
+      return true
     }
 
     return Reflect.defineProperty(target, prop, newDescriptor)
@@ -223,11 +365,11 @@ export class GetProxy {
     const iOpts       = { ...opts, depth }
     const typeOfObj   = quickType(this.target)
 
-    const targetKeys  = kinspect(keysFor(this.target, false, true))
-    const proxiedKeys = kinspect(keysFor(this.propertiesObject, false, true))
+    const targetKeys  = kinspect(keysFor(this.#targetMeta.object, false, true))
+    const proxiedKeys = kinspect(keysFor(this.proxyMeta.object, false, true))
 
-    const metaState   = this.#hasMeta ? "present" : "missing"
-    const forcedState = this.#forceMeta ? ' (forced)' : ''
+    const metaState   = this.#getProxyInstance.present ? "present" : "missing"
+    const forcedState = this.#getProxyInstance.forced ? ' (forced)' : ''
     const metaString  = `${metaState}${forcedState}`
     const verbose     = GetProxy[GetProxy.REPL_VERBOSITY]
 
@@ -251,7 +393,7 @@ export class GetProxy {
   }
 
   static for(object, newProps = []) {
-    const meta = new GetProxy(object, newProps, { forceMeta: true })
+    const meta = new GetProxy(object, newProps, { preferInstance: true })
     const proxy = meta.proxy
     return [proxy, meta]
   }

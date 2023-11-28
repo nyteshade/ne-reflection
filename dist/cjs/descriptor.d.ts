@@ -79,6 +79,37 @@ export class Descriptor {
      */
     static descriptorsFor(object: object, transform: Function, asEntries?: boolean): object;
     /**
+     * Rather than fetching all the descriptors on a given object, this method
+     * attempts to return the single named descriptor.
+     *
+     * @param {object} object the object from which the descriptor should be taken
+     * @param {string|symbol} descriptorName the name or symbol denoting the
+     * descriptor that should be taken from the object.
+     * @param {boolean} asRaw if true, which is the default, the descriptor
+     * object returned will be a standard JavaScript descriptor. If false, an
+     * instance of `Descriptor` will be returned, wrapping the basic object.
+     * @returns one of null, a descriptor object or an instance of Descriptor
+     */
+    static descriptorFor(object: object, descriptorName: string | symbol, asRaw?: boolean): Descriptor | PropertyDescriptor | undefined;
+    /**
+     * Iterates over the descriptors of an object and invokes the provided
+     * iterator function for each descriptor. The signature of the iteratorFn is
+     *
+     * ```js
+     * (entry, index, array) => { ... }
+     * ```
+     *
+     * Where entry is a [key, value] pair for each entry in the array. The key
+     * can be either a string or a symbol.
+     *
+     *
+     * @param {object} object - The object whose descriptors will be iterated over.
+     * @param {Function} iteratorFn - The function to be invoked for each
+     * descriptor. It receives three arguments: the descriptor entry, the index,
+     * and the array of descriptors.
+     */
+    static descriptorsForEach(object: object, iteratorFn: Function): void;
+    /**
      * Retrieves all keys (including Symbol keys) from the given object.
      *
      * @param {object} object the object from which to retrieve the keys.

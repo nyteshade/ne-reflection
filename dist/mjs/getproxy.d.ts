@@ -12,18 +12,24 @@ export class GetProxy {
      * referenced when accessing the proxied object. So if you want to do
      * something
      */
-    constructor(toProxy: any, newProperties: any, { forceMeta }?: {
-        forceMeta: boolean;
-    });
+    constructor(toProxy: any, newProperties?: {}, options?: {});
+    options: {
+        conflictResolution: any;
+        preferInstance: boolean;
+        writeTarget: any;
+    };
+    /** Public object describing proxied values */
+    proxyMeta: ProxyMeta;
     target: any;
     proxy: any;
-    genProperties(fromObject: any): void;
-    propertiesObject: any;
-    properties: any;
     genProxy(apply?: boolean): any;
-    process(object: any): any[];
     get proxyTraps(): null;
-    getIfHas(property: any): any;
+    getIfHas(property: any): Object | null;
+    combinedKeys(): any[];
+    hasConflictWith(property: any): any;
+    destinationObject(): Object | null;
+    resolvePropConflict(property: any): any;
     get [Symbol.toStringTag](): string;
     #private;
 }
+import { ProxyMeta } from './proxymeta.js';
