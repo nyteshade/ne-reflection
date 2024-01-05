@@ -1,7 +1,8 @@
 repo_name: nyteshade/ne-reflection
-report_id: ae04eebe9dadc8cd46d3e171f14074f3
+report_id: d67f8f43a4cd3f92aa0493ffa80f626b
+version: 0.1
 repo_type: Public
-timestamp: '2023-12-14T13:19:14+00:00'
+timestamp: '2024-01-05T08:34:47+00:00'
 requested_by: nyteshade
 provider: github
 branch: main
@@ -15,6 +16,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/no-img-open-source.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/cjs/package.json
   detection_source: dist/cjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
@@ -26,6 +28,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/3117/d-5.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/mjs/package.json
   detection_source: dist/mjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
@@ -38,6 +41,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/1209/javascript.jpeg
+  detection_source_url: https://github.com/nyteshade/ne-reflection
   detection_source: Repo Metadata
 - name: Ruby
   description: A dynamic, interpreted, open source programming language with a focus
@@ -48,6 +52,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/989/ruby.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/cjs/package.json
   detection_source: dist/cjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
@@ -73,6 +78,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Version Control System
   image_url: https://img.stackshare.io/service/1046/git.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection
   detection_source: Repo Metadata
 - name: Jest
   description: Painless JavaScript Unit Testing
@@ -96,6 +102,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Package Managers
   image_url: https://img.stackshare.io/service/12795/5jL6-BA5_400x400.jpeg
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/cjs/package.json
   detection_source: dist/cjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
@@ -107,6 +114,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Front End Package Manager
   image_url: https://img.stackshare.io/service/1120/lejvzrnlpb308aftn31u.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/package.json
   detection_source: package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-18 21:29:07.000000000 Z
@@ -119,6 +127,7 @@ tools:
   category: Assets and Media
   sub_category: File Conversion
   image_url: https://img.stackshare.io/service/11914/typ.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/cjs/package.json
   detection_source: dist/cjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
@@ -127,6 +136,7 @@ tools:
   open_source: false
   hosted_saas: false
   image_url: https://img.stackshare.io/service/2931/no-img-open-source.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/cjs/package.json
   detection_source: dist/cjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
@@ -139,12 +149,14 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/4631/default_c2062d40130562bdc836c13dbca02d318205a962.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection
   detection_source: Repo Metadata
 - name: js
   website_url: www.js.com
   open_source: false
   hosted_saas: false
   image_url: https://img.stackshare.io/service/5588/jscom.png
+  detection_source_url: https://github.com/nyteshade/ne-reflection/blob/main/dist/cjs/package.json
   detection_source: dist/cjs/package.json
   last_updated_by: Brielle Harrison
   last_updated_on: 2023-11-19 07:24:20.000000000 Z
